@@ -1,0 +1,19 @@
+/* Bases Note Templates. Every rule uses a class the plugin adds. */
+
+/* Path under the template name in the template list. */
+.bnt-muted {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+/* Only used by the screenshot script to show the pointer over a button. */
+.bnt-demo-hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+	outline: 2px solid var(--interactive-accent);
+}
+
+/* Setup dialog: wide enough inputs to read a template path. */
+.bnt-setup .setting-item-control input[type="text"] {
+	width: 280px;
+}
