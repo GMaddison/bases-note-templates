@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from 'obsidian-test-mocks/obsidian';
 import BasesNoteTemplatesPlugin, { composeNote, readBaseData } from '../src/main';
-import { DEFAULT_SETTINGS, describeBase, effectiveFor, extraFromRows, normalizeSettings, renamePath, usesNew, type Settings } from '../src/config';
+import { DEFAULT_SETTINGS, describeBase, effectiveFor, extraFromRows, normalizeSettings, renamePath, renameTouches, usesNew, type Settings } from '../src/config';
 import { newButtonProps, planNewNote, type VarContext } from '../src/template';
 import { PRO_UI, SPONSORS, bindPro, isPro, onProChange, resetPro } from '../src/pro';
 import manifest from '../manifest.json';
@@ -64,6 +64,23 @@ describe('settings', () => {
 		const s = renamePath(renamePath(setup(), 'Tasks.base', 'Work/Tasks.base'), 'T/apollo.md', 'T/moon.md');
 		expect(Object.keys(s.bases)).toEqual(['Work/Tasks.base']);
 		expect(s.bases['Work/Tasks.base']?.views).toEqual({ Apollo: 'T/moon.md' });
+	});
+
+	it('moves the folder setting with a renamed folder', () => {
+		const s = renamePath(normalizeSettings({ bases: { 'A.base': { folder: 'Tasks' }, 'B.base': { folder: 'Tasks/Open' }, 'C.base': { folder: 'Tasks2' } } }), 'Tasks', 'Work/Tasks');
+		expect([s.bases['A.base']?.folder, s.bases['B.base']?.folder, s.bases['C.base']?.folder]).toEqual(['Work/Tasks', 'Work/Tasks/Open', 'Tasks2']);
+		expect(renameTouches(setup(), 'Tasks')).toBe(true);
+		expect(renameTouches(setup(), 'Other')).toBe(false);
+	});
+
+	it('keeps a pending New note when the user renames it before the plugin applies the template', async () => {
+		const app = App.createConfigured__({ files: { 'Tasks/My task.md': '' } });
+		const plugin = new BasesNoteTemplatesPlugin(app as never, manifest as never);
+		const file = app.vault.getFileByPath('Tasks/My task.md');
+		const inner = plugin as unknown as { pending: Map<string, unknown>; onRename: (f: unknown, old: string) => Promise<void> };
+		inner.pending.set('Tasks/Untitled.md', { timer: 0 });
+		await inner.onRename(file, 'Tasks/Untitled.md');
+		expect([...inner.pending.keys()]).toEqual(['Tasks/My task.md']);
 	});
 
 	it('describes a setup in one line', () => {

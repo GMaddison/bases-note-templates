@@ -1,7 +1,7 @@
 import { FileView, Notice, Plugin, TFile, TFolder, normalizePath, parseYaml, stringifyYaml, type Menu, type TAbstractFile, type View, type WorkspaceLeaf } from 'obsidian';
 import type { SponsorsManager } from './license/index';
 import { createGitHubSponsors } from './license/github-obsidian';
-import { DEFAULT_BASE, DEFAULT_SETTINGS, effectiveFor, normalizeBase, usesNew, normalizeSettings, renamePath, type BaseConfig, type Effective, type Settings } from './config';
+import { DEFAULT_BASE, DEFAULT_SETTINGS, effectiveFor, normalizeBase, usesNew, normalizeSettings, renamePath, renameTouches, type BaseConfig, type Effective, type Settings } from './config';
 import { SPONSORS, bindPro, isPro, onProChange, resetPro } from './pro';
 import { filtersToProperties } from './filters';
 import { TemplatePickModal, SetupModal } from './modals';
@@ -393,8 +393,13 @@ export default class BasesNoteTemplatesPlugin extends Plugin {
 	}
 
 	private async onRename(file: TAbstractFile, oldPath: string): Promise<void> {
-		const touched = Object.entries(this.settings.bases).some(([path, cfg]) => path === oldPath || cfg.templates.includes(oldPath) || Object.values(cfg.views).includes(oldPath));
-		if (!touched) return;
+		// The user can rename a new note in the app's popover before the fallback timer fires; keep it pending.
+		const pending = this.pending.get(oldPath);
+		if (pending) {
+			this.pending.delete(oldPath);
+			this.pending.set(file.path, pending);
+		}
+		if (!renameTouches(this.settings, oldPath)) return;
 		this.settings = renamePath(this.settings, oldPath, file.path);
 		await this.saveSettings();
 		this.refreshButtons();

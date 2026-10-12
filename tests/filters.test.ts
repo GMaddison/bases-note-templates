@@ -70,6 +70,8 @@ describe('template text', () => {
 		expect(splitFrontmatter('---\na: 1\n---\nBody')).toEqual({ yaml: 'a: 1', body: 'Body' });
 		expect(splitFrontmatter('---\n---\n')).toEqual({ yaml: '', body: '' });
 		expect(splitFrontmatter('No frontmatter')).toEqual({ yaml: null, body: 'No frontmatter' });
+		expect(splitFrontmatter('---\nsep: a ---\nb: 1\n---\nBody')).toEqual({ yaml: 'sep: a ---\nb: 1', body: 'Body' });
+		expect(splitFrontmatter('---\n\n---\nBody')).toEqual({ yaml: '', body: 'Body' });
 	});
 
 	it('merges so filter values win and blank values do not', () => {

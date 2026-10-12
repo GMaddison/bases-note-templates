@@ -1,5 +1,11 @@
 # bases-note-templates
 
+## 1.1.1
+
+### Patch Changes
+
+- 1fa72a1: Keep the folder setting after a folder rename, keep a new note pending when you rename it early, read frontmatter values that end in three dashes, and correct README claims.
+
 ## 1.1.0
 
 ### Minor Changes

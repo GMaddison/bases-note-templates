@@ -1,6 +1,6 @@
 # Bases Note Templates
 
-Bases Note Templates makes the New button of a base start each note from a template. You pick a template note for the base. When you press New, the new note gets the properties and the text of that template, plus the values of the base filters, in the right folder, with a file name from a pattern.
+Bases Note Templates makes the New button of a base start new notes from a template. You pick a template note for the base. When you press New, the new note gets the properties and the text of that template, plus the values of the base filters, in the right folder, with a file name from a pattern.
 
 A base filtered by `status == "todo"` and `project == "[[Apollo]]"` then gives notes like `2026-10-10 Apollo.md`, with `status: todo`, `project: "[[Apollo]]"` and the headings of your task template already in place. You no longer make a note, delete it, and insert a template by hand.
 
@@ -16,13 +16,13 @@ One template for each base, the filter values, the folder and the name pattern a
 
 Press New in a base as usual. The app makes the note and writes the filter values. Then the plugin adds the template: its properties go in first, and its text becomes the body of the note. The app's popover shows the result, so you can type right away.
 
-The plugin waits for the app to finish its own step, then changes the note once. If the base has no setup, the New button works exactly as before.
+The plugin waits for the app to finish its own step, then rewrites the note in one edit and renames it if a name pattern or a folder is set. If the base has no setup, the plugin does not touch the note.
 
 ### Filter values as properties
 
 <img src="https://raw.githubusercontent.com/theluckystrike/bases-note-templates/HEAD/docs/filter-values.png" alt="A new note with status and project from the view filters and priority and the headings from the template" width="720">
 
-A value from the filters wins over the same property in the template. The template above says `status: draft`, but the view shows only `status == "todo"`, so the new note gets `todo` and shows up in the view. An empty value never hides a template value: the app adds an empty property for each column, and the template's `priority: normal` stays.
+A value from the filters wins over the same property in the template. The template above says `status: draft`, but the view shows only `status == "todo"`, so the new note gets `todo` and shows up in the view. An empty value does not hide a template value: the app adds an empty property for each column, and the template's `priority: normal` stays.
 
 The plugin reads the same filter rules as the app: `==`, `>=` and `<=`, `contains`, `containsAll` and `containsAny`, `file.hasTag`, `file.inFolder`, `file.folder ==`, `file.hasProperty`, and `!prop.isEmpty()`. Values can be text, numbers, true or false, lists, `link()`, `date()` and `today()`. A test in the app compares the result with what the New button of Obsidian writes for the same base.
 
@@ -40,7 +40,7 @@ A filter value or a template value with the same name wins over an extra propert
 
 Run "Set up templates for this base" from an open base. Choose the template, a folder and a name pattern. With no folder, notes go to the folder in the filters, such as `file.inFolder("Tasks")`, else to your default location for new notes.
 
-The name pattern can use `{{date}}`, `{{date:YYYY-MM-DD}}`, `{{time}}`, `{{base}}`, `{{view}}`, `{{template}}` and any filter property, such as `{{project}}`. A link loses its brackets, so `[[Apollo]]` gives `Apollo`. Characters that a file name cannot hold are removed. If the name is taken, the plugin adds a number, like the app does.
+The name pattern can use `{{date}}`, `{{date:YYYY-MM-DD}}`, `{{time}}`, `{{base}}`, `{{view}}`, `{{template}}` and any filter property, such as `{{project}}`. A link loses its brackets, so `[[Apollo]]` gives `Apollo`. Characters that a file name cannot hold become spaces. If the name is taken, the plugin adds a number, like the app does.
 
 Templates can use the variables of the core Templates plugin: `{{title}}`, `{{date}}` and `{{time}}`, with or without a format. They work in the text and in property values.
 
@@ -66,7 +66,7 @@ Give a view its own template, for example a Bug template for the Bugs view of a 
 
 <img src="https://raw.githubusercontent.com/theluckystrike/bases-note-templates/HEAD/docs/duplicate.png" alt="The command palette with Duplicate the current note as a new note" width="720">
 
-Right-click a row of a base and select "Duplicate as new note", or run "Duplicate the current note as a new note". The plugin copies the note, with all its properties, to a new note next to it and opens it. The copy shows up in the same base.
+Right-click a row of a base and select "Duplicate as new note", or run "Duplicate the current note as a new note". The plugin copies the text of the note, properties included, to a new note in the same folder and opens it. The copy has the same properties as the original, so it shows up in a base that filters on folder or properties.
 
 With Pro, the plugin can also hand a new note to Templater. If the note still has Templater tags after Templater had its own chance, the plugin asks Templater to fill them in.
 
@@ -111,7 +111,7 @@ Without Pro, a base with more templates uses its first template, and view templa
 | Time format | HH:mm | moment.js tokens |
 | Run Templater on new notes | On | On or off (Pro) |
 
-"Bases with templates" lists each base that has a setup. Delete an entry to remove its setup. The plugin keeps the setup when you rename or move the base or a template.
+"Bases with templates" lists each base that has a setup. Delete an entry to remove its setup. The plugin keeps the setup when you rename or move the base, a template or the folder for new notes.
 
 ## FAQ
 
@@ -123,7 +123,7 @@ Partly. The New button writes the filter values, and it puts the note in the fol
 
 No. The setup lives in the plugin's `data.json`. Base files stay as they are.
 
-### Can I give every new note a property that is not in the filters or the template?
+### Can new notes get a property that is not in the filters or the template?
 
 Yes. Open the setup of the base and add the name and the value under "Extra properties". A new note from the command, the header button or the New button gets the pair, and `{{date}}`, `{{time}}`, `{{base}}`, `{{view}}` and `{{template}}` work in the value. A filter value or a template value with the same name wins.
 

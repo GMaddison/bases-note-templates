@@ -107,15 +107,23 @@ export function extraFromRows(rows: { name: string; value: string }[]): Record<s
 	return out;
 }
 
-/** Settings after a file rename: base keys and template paths follow the file. */
+/** True when p is oldPath or a path inside the folder oldPath. */
+const under = (p: string, oldPath: string) => p === oldPath || p.startsWith(`${oldPath}/`);
+
+/** True when a rename of oldPath (a file or a folder) changes a base key, a template path or a folder setting. */
+export function renameTouches(settings: Settings, oldPath: string): boolean {
+	return Object.entries(settings.bases).some(([path, cfg]) => [path, cfg.folder, ...cfg.templates, ...Object.values(cfg.views)].some((p) => p !== '' && under(p, oldPath)));
+}
+
+/** Settings after a file or folder rename: base keys, template paths and folder settings follow the file. */
 export function renamePath(settings: Settings, oldPath: string, newPath: string): Settings {
-	const swap = (p: string) => (p === oldPath ? newPath : p);
+	const swap = (p: string) => (p !== '' && under(p, oldPath) ? newPath + p.slice(oldPath.length) : p);
 	const bases: Record<string, BaseConfig> = {};
 	for (const [path, cfg] of Object.entries(settings.bases)) {
 		const views: Record<string, string> = {};
 		for (const [k, v] of Object.entries(cfg.views)) views[k] = swap(v);
 		const key = swap(path);
-		if (key.endsWith('.base')) bases[key] = { ...cfg, templates: cfg.templates.map(swap), views };
+		if (key.endsWith('.base')) bases[key] = { ...cfg, templates: cfg.templates.map(swap), folder: swap(cfg.folder), views };
 	}
 	return { ...settings, bases };
 }

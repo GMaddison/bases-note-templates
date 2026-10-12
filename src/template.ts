@@ -93,7 +93,8 @@ export function renderVariables(text: string, ctx: VarContext): string {
 
 /** Splits note text into the YAML between the first two --- lines and the body after them. */
 export function splitFrontmatter(text: string): { yaml: string | null; body: string } {
-	const m = /^---\r?\n([\s\S]*?)\r?\n?---[ \t]*(?:\r?\n|$)/.exec(text);
+	// The closing --- must start a line, so a value that ends in --- does not end the block.
+	const m = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/.exec(text);
 	if (!m) return { yaml: null, body: text };
 	return { yaml: m[1] ?? '', body: text.slice(m[0].length) };
 }
