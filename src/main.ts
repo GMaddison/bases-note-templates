@@ -1,12 +1,12 @@
 import { FileView, Notice, Plugin, TFile, TFolder, normalizePath, parseYaml, stringifyYaml, type Menu, type TAbstractFile, type View, type WorkspaceLeaf } from 'obsidian';
 import type { SponsorsManager } from './license/index';
 import { createGitHubSponsors } from './license/github-obsidian';
-import { DEFAULT_BASE, DEFAULT_SETTINGS, effectiveFor, normalizeBase, normalizeSettings, renamePath, type BaseConfig, type Effective, type Settings } from './config';
+import { DEFAULT_BASE, DEFAULT_SETTINGS, effectiveFor, normalizeBase, usesNew, normalizeSettings, renamePath, type BaseConfig, type Effective, type Settings } from './config';
 import { SPONSORS, bindPro, isPro, onProChange, resetPro } from './pro';
 import { filtersToProperties } from './filters';
 import { TemplatePickModal, SetupModal } from './modals';
 import { BasesNoteTemplatesSettingTab } from './settings';
-import { makeFileName, mergeProperties, planNewNote, renderVariables, splitFrontmatter, uniquePath, type Props, type VarContext } from './template';
+import { makeFileName, newButtonProps, planNewNote, renderVariables, splitFrontmatter, uniquePath, type Props, type VarContext } from './template';
 import { runTemplater } from './templater';
 
 /** How often to ask the license state whether a check is due. It sends a request only when signed in and due (7 days). */
@@ -256,7 +256,7 @@ export default class BasesNoteTemplatesPlugin extends Plugin {
 
 	/** Command and header button: a new note from the template, the filter values, the folder and the name pattern. */
 	async newFromCommand(ctx: BaseContext): Promise<TFile | null> {
-		const eff = effectiveFor(this.settings, ctx.file.path, ctx.view, isPro()) ?? { templates: [], folder: '', pattern: '', onNew: false, locked: [] };
+		const eff = effectiveFor(this.settings, ctx.file.path, ctx.view, isPro()) ?? { templates: [], folder: '', pattern: '', onNew: false, extraProps: {}, locked: [] };
 		const chosen = await this.pick(eff.templates);
 		if (eff.templates.length > 1 && !chosen) return null;
 		const template = chosen ? await this.readTemplate(chosen) : null;
@@ -264,7 +264,7 @@ export default class BasesNoteTemplatesPlugin extends Plugin {
 		const data = readBaseData(await this.app.vault.cachedRead(ctx.file));
 		const view = data.views.find((v) => v.name === ctx.view) ?? data.views[0];
 		const plan = planNewNote(
-			{ baseFilters: data.filters, viewFilters: view?.filters, order: view?.order, template: template?.text, templateName: template?.name, pattern: eff.pattern, folder: eff.folder, base: ctx.file.basename, view: view?.name ?? '', now: new Date().toISOString(), dateFormat: this.settings.dateFormat, timeFormat: this.settings.timeFormat, types: await this.readTypes() },
+			{ baseFilters: data.filters, viewFilters: view?.filters, order: view?.order, template: template?.text, templateName: template?.name, pattern: eff.pattern, folder: eff.folder, base: ctx.file.basename, view: view?.name ?? '', now: new Date().toISOString(), dateFormat: this.settings.dateFormat, timeFormat: this.settings.timeFormat, types: await this.readTypes(), extraProps: eff.extraProps },
 			template?.props ?? {},
 			(target) => this.linkText(target, ctx.file.path),
 		);
@@ -303,7 +303,7 @@ export default class BasesNoteTemplatesPlugin extends Plugin {
 		const ctx = this.activeBase();
 		if (!ctx) return;
 		const eff = effectiveFor(this.settings, ctx.file.path, ctx.view, isPro());
-		if (!eff || !eff.onNew || (eff.templates.length === 0 && !eff.pattern)) return;
+		if (!eff || !usesNew(eff)) return;
 		const timer = window.setTimeout(() => this.firePending(file), NEW_FALLBACK_MS);
 		this.pending.set(file.path, { ctx, eff, timer });
 	}
@@ -335,11 +335,11 @@ export default class BasesNoteTemplatesPlugin extends Plugin {
 			const current = propsFromYaml(yaml);
 			if (eff.pattern) name = makeFileName(eff.pattern, { ...vars, props: current });
 			const withTitle = { ...vars, title: name, props: current };
-			if (!template) return text;
-			const rendered: Props = {};
-			for (const [k, v] of Object.entries(template.props)) rendered[k] = typeof v === 'string' ? renderVariables(v, withTitle) : v;
+			if (!template && Object.keys(eff.extraProps).length === 0) return text;
+			const merged = newButtonProps(current, template?.props ?? {}, eff.extraProps, withTitle);
+			if (!template) return composeNote(merged, body);
 			const tBody = renderVariables(splitFrontmatter(template.text).body, withTitle);
-			return composeNote(mergeProperties(rendered, current), body.trim() ? `${tBody}${tBody.endsWith('\n') ? '' : '\n'}${body}` : tBody);
+			return composeNote(merged, body.trim() ? `${tBody}${tBody.endsWith('\n') ? '' : '\n'}${body}` : tBody);
 		});
 		const here = file.parent && file.parent.path !== '/' ? file.parent.path : '';
 		const dir = eff.folder || here;

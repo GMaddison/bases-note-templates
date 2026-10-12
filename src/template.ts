@@ -154,6 +154,8 @@ export interface PlanInput {
 	dateFormat?: string;
 	timeFormat?: string;
 	types?: Record<string, string>;
+	/** Extra properties the user set for this base. Filter values and template values win over them. */
+	extraProps?: Record<string, string>;
 }
 
 export interface Plan {
@@ -188,5 +190,23 @@ export function planNewNote(input: PlanInput, templateProps: Props = {}, linkTex
 	const rendered: Props = {};
 	for (const [k, v] of Object.entries(templateProps)) rendered[k] = typeof v === 'string' ? renderVariables(v, withTitle) : v;
 	const body = renderVariables(splitFrontmatter(input.template ?? '').body, withTitle);
-	return { folder: input.folder?.trim() || filters.folder, name, properties: mergeProperties(rendered, filters.properties), body };
+	// Extra user properties sit under the template values and the filter values. A filter rule for a
+	// property the user set as extra keeps the filter value, because filters.properties wins on top.
+	const withExtra = mergeProperties(renderExtra(input.extraProps, withTitle), rendered);
+	return { folder: input.folder?.trim() || filters.folder, name, properties: mergeProperties(withExtra, filters.properties), body };
+}
+
+/** Extra property values are text, with the variables rendered. */
+export function renderExtra(extra: Record<string, string> | undefined, ctx: VarContext): Props {
+	const out: Props = {};
+	if (!extra) return out;
+	for (const [k, v] of Object.entries(extra)) out[k] = renderVariables(v, ctx);
+	return out;
+}
+
+/** New button: extras under the template values, and the values the app wrote on top (a blank value hides nothing). */
+export function newButtonProps(current: Props, templateProps: Props, extra: Record<string, string> | undefined, ctx: VarContext): Props {
+	const rendered: Props = {};
+	for (const [k, v] of Object.entries(templateProps)) rendered[k] = typeof v === 'string' ? renderVariables(v, ctx) : v;
+	return mergeProperties(mergeProperties(renderExtra(extra, ctx), rendered), current);
 }

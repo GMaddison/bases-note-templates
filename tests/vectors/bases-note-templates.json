@@ -654,6 +654,76 @@
     "properties": {},
     "body": ""
    }
+  },
+  {
+   "name": "extra properties merge with filter and template precedence",
+   "args": [
+    {
+     "baseFilters": [],
+     "viewFilters": [],
+     "order": [],
+     "template": "---\nstatus: from-template\n---\nBody",
+     "templateName": "Task",
+     "pattern": "{{base}} note",
+     "folder": "Notes",
+     "base": "Book",
+     "view": "",
+     "now": "2026-10-12T09:30:00",
+     "dateFormat": "YYYY-MM-DD",
+     "timeFormat": "HH:mm",
+     "types": {},
+     "extraProps": {
+      "status": "from-extra",
+      "source": "inbox",
+      "created": "{{date:YYYY-MM-DD}}"
+     }
+    },
+    {
+     "status": "from-template"
+    }
+   ],
+   "expected": {
+    "folder": "Notes",
+    "name": "Book note",
+    "properties": {
+     "status": "from-template",
+     "source": "inbox",
+     "created": "2026-10-12"
+    },
+    "body": "Body"
+   }
+  },
+  {
+   "name": "extra properties without template",
+   "args": [
+    {
+     "baseFilters": [],
+     "viewFilters": [],
+     "order": [],
+     "template": null,
+     "templateName": null,
+     "pattern": "",
+     "folder": "",
+     "base": "Book",
+     "view": "",
+     "now": "2026-10-12T09:30:00",
+     "dateFormat": "YYYY-MM-DD",
+     "timeFormat": "HH:mm",
+     "types": {},
+     "extraProps": {
+      "source": "inbox"
+     }
+    },
+    {}
+   ],
+   "expected": {
+    "folder": "",
+    "name": "Untitled",
+    "properties": {
+     "source": "inbox"
+    },
+    "body": ""
+   }
   }
  ]
 }

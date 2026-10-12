@@ -17,3 +17,18 @@
 .bnt-setup .setting-item-control input[type="text"] {
 	width: 280px;
 }
+
+/* Setup dialog: an extra property row is a name field, a value field and a remove button that share the width. */
+.bnt-setup .bnt-extra .setting-item-info {
+	display: none;
+}
+
+.bnt-setup .bnt-extra .setting-item-control {
+	flex: 1 1 auto;
+}
+
+.bnt-setup .bnt-extra .setting-item-control input[type="text"] {
+	flex: 1 1 0;
+	min-width: 0;
+	width: auto;
+}

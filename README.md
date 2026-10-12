@@ -26,6 +26,14 @@ A value from the filters wins over the same property in the template. The templa
 
 The plugin reads the same filter rules as the app: `==`, `>=` and `<=`, `contains`, `containsAll` and `containsAny`, `file.hasTag`, `file.inFolder`, `file.folder ==`, `file.hasProperty`, and `!prop.isEmpty()`. Values can be text, numbers, true or false, lists, `link()`, `date()` and `today()`. A test in the app compares the result with what the New button of Obsidian writes for the same base.
 
+### Extra properties
+
+In the setup of the base, add name and value pairs under "Extra properties". A note that you make with the command, the header button or the New button of that base gets each pair as a property. Use it for a `source`, a default `status`, or a date stamp like `{{date:YYYY-MM-DD}}`. The plugin renders `{{date}}`, `{{time}}`, `{{base}}`, `{{view}}` and `{{template}}` in an extra value.
+
+A filter value or a template value with the same name wins over an extra property, so extras are defaults, not overrides.
+
+<img src="https://raw.githubusercontent.com/theluckystrike/bases-note-templates/HEAD/docs/setup-extra-props.png" alt="The setup dialog of a base with extra properties source and status" width="720">
+
 ### Folder and name pattern
 
 <img src="https://raw.githubusercontent.com/theluckystrike/bases-note-templates/HEAD/docs/setup.png" alt="The setup dialog of a base with the template, the folder, the name pattern and the New button switch" width="720">
@@ -114,6 +122,10 @@ Partly. The New button writes the filter values, and it puts the note in the fol
 ### Does it change my base files?
 
 No. The setup lives in the plugin's `data.json`. Base files stay as they are.
+
+### Can I give every new note a property that is not in the filters or the template?
+
+Yes. Open the setup of the base and add the name and the value under "Extra properties". A new note from the command, the header button or the New button gets the pair, and `{{date}}`, `{{time}}`, `{{base}}`, `{{view}}` and `{{template}}` work in the value. A filter value or a template value with the same name wins.
 
 ### Why is the New button of an embedded base not changed?
 

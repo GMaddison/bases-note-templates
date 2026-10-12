@@ -11,6 +11,8 @@ export interface BaseConfig {
 	pattern: string;
 	/** Apply the template when New is pressed in this base. */
 	onNew: boolean;
+	/** Extra properties (name -> value) each new note gets. Filter values and template values still come first. */
+	extraProps: Record<string, string>;
 	/** Pro: view name -> template path used for that view first. */
 	views: Record<string, string>;
 }
@@ -25,7 +27,7 @@ export interface Settings {
 	templater: boolean;
 }
 
-export const DEFAULT_BASE: BaseConfig = { templates: [], folder: '', pattern: '', onNew: true, views: {} };
+export const DEFAULT_BASE: BaseConfig = { templates: [], folder: '', pattern: '', onNew: true, extraProps: {}, views: {} };
 export const DEFAULT_SETTINGS: Settings = { bases: {}, hookNew: true, dateFormat: 'YYYY-MM-DD', timeFormat: 'HH:mm', templater: true };
 export const MAX_TEMPLATES = 10;
 
@@ -39,11 +41,14 @@ export function normalizeBase(raw: unknown): BaseConfig {
 	const templates = Array.isArray(r.templates) ? r.templates.filter((t): t is string => typeof t === 'string' && t.trim() !== '').map((t) => t.trim()) : [];
 	const views: Record<string, string> = {};
 	if (isRecord(r.views)) for (const [k, v] of Object.entries(r.views)) if (typeof v === 'string' && v.trim()) views[k] = v.trim();
+	const extraProps: Record<string, string> = {};
+	if (isRecord(r.extraProps)) for (const [k, v] of Object.entries(r.extraProps)) if (typeof v === 'string' && k.trim()) extraProps[k.trim()] = v;
 	return {
 		templates: [...new Set(templates)].slice(0, MAX_TEMPLATES),
 		folder: str(r.folder, '').trim().replace(/^\/+|\/+$/g, ''),
 		pattern: str(r.pattern, '').trim(),
 		onNew: bool(r.onNew, true),
+		extraProps,
 		views,
 	};
 }
@@ -68,6 +73,8 @@ export interface Effective {
 	folder: string;
 	pattern: string;
 	onNew: boolean;
+	/** Extra properties (name -> value) each new note gets. */
+	extraProps: Record<string, string>;
 	/** Pro-only parts of the saved setup that are off because Pro is off. */
 	locked: string[];
 }
@@ -85,7 +92,19 @@ export function effectiveFor(settings: Settings, basePath: string, view: string,
 		if (viewTemplate) locked.push('view template');
 		if (cfg.templates.length > 1) locked.push('more than one template');
 	}
-	return { templates, folder: cfg.folder, pattern: cfg.pattern, onNew: settings.hookNew && cfg.onNew, locked };
+	return { templates, folder: cfg.folder, pattern: cfg.pattern, onNew: settings.hookNew && cfg.onNew, extraProps: cfg.extraProps, locked };
+}
+
+/** True when the New button of the base has work to do: a template, a name pattern or extra properties. */
+export function usesNew(eff: Effective): boolean {
+	return eff.onNew && (eff.templates.length > 0 || eff.pattern !== '' || Object.keys(eff.extraProps).length > 0);
+}
+
+/** Extra properties from the rows of the setup dialog: names are trimmed, empty names are skipped, the last equal name wins. */
+export function extraFromRows(rows: { name: string; value: string }[]): Record<string, string> {
+	const out: Record<string, string> = {};
+	for (const { name, value } of rows) if (name.trim()) out[name.trim()] = value;
+	return out;
 }
 
 /** Settings after a file rename: base keys and template paths follow the file. */
@@ -106,6 +125,7 @@ export function describeBase(cfg: BaseConfig): string {
 	const parts: string[] = [];
 	parts.push(cfg.templates.length ? `Template: ${cfg.templates.join(', ')}.` : 'No template, filter values only.');
 	if (Object.keys(cfg.views).length) parts.push(`View templates: ${Object.entries(cfg.views).map(([v, t]) => `${v} -> ${t}`).join(', ')}.`);
+	if (Object.keys(cfg.extraProps).length) parts.push(`Extra properties: ${Object.keys(cfg.extraProps).join(', ')}.`);
 	if (cfg.folder) parts.push(`Folder: ${cfg.folder}.`);
 	if (cfg.pattern) parts.push(`Name: ${cfg.pattern}.`);
 	if (!cfg.onNew) parts.push('New button not used.');

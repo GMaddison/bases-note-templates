@@ -1,5 +1,5 @@
 import { AbstractInputSuggest, Modal, Notice, Setting, SuggestModal, TFile, TFolder, type App } from 'obsidian';
-import { MAX_TEMPLATES, type BaseConfig } from './config';
+import { MAX_TEMPLATES, extraFromRows, type BaseConfig } from './config';
 import type { BaseContext } from './main';
 
 /** Suggests Markdown notes (templates) or folders while the user types a path. */
@@ -79,6 +79,8 @@ export interface SetupOptions {
 /** Template, folder, name pattern and New button choice for one base. Pro adds more templates and view templates. */
 export class SetupModal extends Modal {
 	private cfg: BaseConfig;
+	/** Extra properties as editable rows: a name can change, and two new rows never share a key. */
+	private extraRows: { name: string; value: string }[];
 
 	constructor(
 		app: App,
@@ -86,6 +88,7 @@ export class SetupModal extends Modal {
 	) {
 		super(app);
 		this.cfg = { ...opts.cfg, templates: [...opts.cfg.templates], views: { ...opts.cfg.views } };
+		this.extraRows = Object.entries(opts.cfg.extraProps).map(([name, value]) => ({ name, value }));
 	}
 
 	onOpen(): void {
@@ -125,6 +128,7 @@ export class SetupModal extends Modal {
 				}),
 		);
 		this.renderViews(el);
+		this.renderExtraProps(el);
 		this.pathSetting(el, 'Folder', 'Where new notes go. Empty = the folder in the filters (file.inFolder), else your default location for new notes.', this.cfg.folder, 'folder', (v) => {
 			this.cfg.folder = v;
 		});
@@ -149,6 +153,31 @@ export class SetupModal extends Modal {
 				else delete this.cfg.views[view];
 			}).setDisabled(!pro);
 		}
+	}
+
+	private renderExtraProps(el: HTMLElement): void {
+		new Setting(el).setName('Extra properties').setHeading().setDesc('A property every new note of this base gets. A filter value or a template value with the same name wins over it.');
+		this.extraRows.forEach((row, i) => {
+			const s = new Setting(el);
+			s.settingEl.addClass('bnt-extra');
+			s.addText((text) => text.setPlaceholder('Name').setValue(row.name).onChange((v) => (row.name = v)))
+				.addText((text) => text.setPlaceholder('Value').setValue(row.value).onChange((v) => (row.value = v)))
+				.addExtraButton((b) =>
+					b.setIcon('trash').setTooltip('Remove').onClick(() => {
+						this.extraRows.splice(i, 1);
+						this.render();
+					}),
+				);
+		});
+		new Setting(el).addButton((b) =>
+			b
+				.setButtonText('Add property')
+				.setDisabled(this.extraRows.length >= MAX_TEMPLATES)
+				.onClick(() => {
+					this.extraRows.push({ name: '', value: '' });
+					this.render();
+				}),
+		);
 	}
 
 	private renderButtons(el: HTMLElement): void {
@@ -178,7 +207,7 @@ export class SetupModal extends Modal {
 			new Notice(`Not found: ${missing.join(', ')}`);
 			return;
 		}
-		this.opts.onSave({ ...this.cfg, templates: this.cfg.templates.filter(Boolean) });
+		this.opts.onSave({ ...this.cfg, templates: this.cfg.templates.filter(Boolean), extraProps: extraFromRows(this.extraRows) });
 		this.close();
 	}
 }

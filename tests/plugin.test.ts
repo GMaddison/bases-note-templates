@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from 'obsidian-test-mocks/obsidian';
 import BasesNoteTemplatesPlugin, { composeNote, readBaseData } from '../src/main';
-import { DEFAULT_SETTINGS, describeBase, effectiveFor, normalizeSettings, renamePath, type Settings } from '../src/config';
+import { DEFAULT_SETTINGS, describeBase, effectiveFor, extraFromRows, normalizeSettings, renamePath, usesNew, type Settings } from '../src/config';
+import { newButtonProps, planNewNote, type VarContext } from '../src/template';
 import { PRO_UI, SPONSORS, bindPro, isPro, onProChange, resetPro } from '../src/pro';
 import manifest from '../manifest.json';
 
@@ -40,13 +41,13 @@ describe('settings', () => {
 		expect(normalizeSettings(null)).toEqual(DEFAULT_SETTINGS);
 		expect(normalizeSettings({ hookNew: 'x', dateFormat: 5, bases: { 'a.md': {}, 'b.base': { templates: ['x.md', 'x.md', 3, ' '], folder: '/F/', onNew: 'no' } } })).toEqual({
 			...DEFAULT_SETTINGS,
-			bases: { 'b.base': { templates: ['x.md'], folder: 'F', pattern: '', onNew: true, views: {} } },
+			bases: { 'b.base': { templates: ['x.md'], folder: 'F', pattern: '', onNew: true, extraProps: {}, views: {} } },
 		});
 	});
 
 	it('free uses only the first base template and reports the Pro parts as locked', () => {
 		const eff = effectiveFor(setup(), 'Tasks.base', 'Apollo', false);
-		expect(eff).toEqual({ templates: ['T/a.md'], folder: 'Tasks', pattern: '{{date}}', onNew: true, locked: ['view template', 'more than one template'] });
+		expect(eff).toEqual({ templates: ['T/a.md'], folder: 'Tasks', pattern: '{{date}}', onNew: true, extraProps: {}, locked: ['view template', 'more than one template'] });
 	});
 
 	it('Pro puts the view template first, then every base template', () => {
@@ -88,6 +89,40 @@ describe('base file and note text', () => {
 	it('writes no frontmatter block when there are no properties', () => {
 		expect(composeNote({}, 'Body')).toBe('Body');
 		expect(composeNote({ status: 'todo' }, 'Body')).toMatch(/^---\nstatus: todo\n---\nBody$/);
+	});
+
+	it('names extra properties in the setup line', () => {
+		expect(describeBase(setup({ extraProps: { source: 'inbox' } }).bases['Tasks.base']!)).toBe('Template: T/a.md, T/b.md. View templates: Apollo -> T/apollo.md. Extra properties: source. Folder: Tasks. Name: {{date}}.');
+	});
+});
+
+describe('extra properties', () => {
+	const vars: VarContext = { title: 'Note', now: new Date('2026-10-12T09:30:00'), dateFormat: 'YYYY-MM-DD', timeFormat: 'HH:mm', base: 'Tasks', view: 'All', template: 'Task', props: {} };
+
+	it('the New button renders extras, keeps template values over them and fills blank columns', () => {
+		const out = newButtonProps({ status: '', project: '[[Apollo]]' }, { status: 'draft' }, { status: 'from-extra', created: '{{date}}', where: '{{base}}', project: 'x' }, vars);
+		expect(out).toEqual({ status: 'draft', created: '2026-10-12', where: 'Tasks', project: '[[Apollo]]' });
+	});
+
+	it('the command keeps a filter value over an extra with the same name', () => {
+		const plan = planNewNote({ baseFilters: { and: ['status == "todo"'] }, now: '2026-10-12T09:30:00', extraProps: { status: 'from-extra', source: 'inbox' } });
+		expect(plan.properties).toEqual({ status: 'todo', source: 'inbox' });
+	});
+
+	it('the New button adds extras when there is no template', () => {
+		expect(newButtonProps({}, {}, { source: 'inbox' }, vars)).toEqual({ source: 'inbox' });
+		expect(newButtonProps({}, {}, { stamp: '{{time}} {{view}} {{template}}' }, vars)).toEqual({ stamp: '09:30 All Task' });
+	});
+
+	it('the New button is used for a setup with only extra properties', () => {
+		const eff = effectiveFor(normalizeSettings({ bases: { 'Tasks.base': { extraProps: { source: 'inbox' } } } }), 'Tasks.base', 'All', false);
+		expect(eff && usesNew(eff)).toBe(true);
+		const none = effectiveFor(normalizeSettings({ bases: { 'Tasks.base': {} } }), 'Tasks.base', 'All', false);
+		expect(none && usesNew(none)).toBe(false);
+	});
+
+	it('setup rows give trimmed names, skip empty names and keep the last of two equal names', () => {
+		expect(extraFromRows([{ name: ' source ', value: 'inbox' }, { name: '', value: 'lost' }, { name: 'status', value: 'a' }, { name: 'status', value: 'b' }])).toEqual({ source: 'inbox', status: 'b' });
 	});
 });
 
