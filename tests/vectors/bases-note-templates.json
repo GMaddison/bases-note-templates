@@ -724,6 +724,49 @@
     },
     "body": ""
    }
+  },
+  {
+   "name": "nested template variables and Unicode properties",
+   "args": [
+    {
+     "baseFilters": {
+      "and": [
+       "note.状態 == \"進行中\""
+      ]
+     },
+     "pattern": "日本語",
+     "base": "研究",
+     "now": "2026-10-18T09:00:00"
+    },
+    {
+     "meta": {
+      "title": "{{title}}",
+      "items": [
+       "{{base}}"
+      ]
+     },
+     "aliases": [
+      "{{title}} 別名"
+     ]
+    }
+   ],
+   "expected": {
+    "folder": "",
+    "name": "日本語",
+    "properties": {
+     "meta": {
+      "title": "日本語",
+      "items": [
+       "研究"
+      ]
+     },
+     "aliases": [
+      "日本語 別名"
+     ],
+     "状態": "進行中"
+    },
+    "body": ""
+   }
   }
  ]
 }

@@ -17,7 +17,7 @@ const hasOwn = (o: object, k: string): boolean => Object.prototype.hasOwnPropert
 
 export type LinkText = (target: string) => string;
 
-export type PropValue = string | number | boolean | null | PropValue[];
+export type PropValue = string | number | boolean | null | PropValue[] | { [key: string]: PropValue };
 
 export interface FilterResult {
 	properties: Record<string, PropValue>;
@@ -130,14 +130,14 @@ export function parseSubject(raw: string): Subject | null {
 		const name = unquote((index[2] ?? '').trim());
 		return name ? { type: index[1] as Subject['type'], name } : null;
 	}
-	const member = /^([A-Za-z_][\w-]*)\.([A-Za-z_][\w-]*)$/.exec(text);
+	const member = /^([\p{L}_][\p{L}\p{N}\p{M}_-]*)\.([\p{L}_][\p{L}\p{N}\p{M}_-]*)$/u.exec(text);
 	if (member) {
 		const [, obj = '', key = ''] = member;
 		if (obj === 'note' || obj === 'file' || obj === 'formula') return { type: obj, name: key };
 		if (obj === 'this') return null;
 		return { type: 'note', name: `${obj}.${key}` };
 	}
-	if (/^[A-Za-z_][\w-]*$/.test(text)) {
+	if (/^[\p{L}_][\p{L}\p{N}\p{M}_-]*$/u.test(text)) {
 		if (['true', 'false', 'null', 'this'].includes(text)) return null;
 		return text === 'file' ? { type: 'file', name: 'file' } : { type: 'note', name: text };
 	}

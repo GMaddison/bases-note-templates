@@ -1,5 +1,11 @@
 # bases-note-templates
 
+## 1.1.3
+
+### Patch Changes
+
+- 880d827: Render template variables in nested YAML lists and mappings. Read Unicode filter property names. Read frontmatter with a byte order mark or a YAML end marker.
+
 ## 1.1.2
 
 ### Patch Changes

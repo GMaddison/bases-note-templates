@@ -65,6 +65,7 @@ export interface VarContext {
 export function plainValue(v: PropValue | undefined): string {
 	if (v === null || v === undefined) return '';
 	if (Array.isArray(v)) return v.map(plainValue).filter(Boolean).join(', ');
+	if (typeof v === 'object') return '';
 	const s = String(v);
 	const link = /^\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]$/.exec(s);
 	if (!link) return s;
@@ -94,7 +95,7 @@ export function renderVariables(text: string, ctx: VarContext): string {
 /** Splits note text into the YAML between the first two --- lines and the body after them. */
 export function splitFrontmatter(text: string): { yaml: string | null; body: string } {
 	// The closing --- must start a line, so a value that ends in --- does not end the block.
-	const m = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/.exec(text);
+	const m = /^\uFEFF?---[ \t]*\r?\n(?:([\s\S]*?)\r?\n)?(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/.exec(text);
 	if (!m) return { yaml: null, body: text };
 	return { yaml: m[1] ?? '', body: text.slice(m[0].length) };
 }
@@ -188,8 +189,7 @@ export function planNewNote(input: PlanInput, templateProps: Props = {}, linkTex
 	};
 	const name = makeFileName(input.pattern ?? '', ctx);
 	const withTitle = { ...ctx, title: name };
-	const rendered: Props = {};
-	for (const [k, v] of Object.entries(templateProps)) rendered[k] = typeof v === 'string' ? renderVariables(v, withTitle) : v;
+	const rendered = renderProperties(templateProps, withTitle);
 	const body = renderVariables(splitFrontmatter(input.template ?? '').body, withTitle);
 	// Extra user properties sit under the template values and the filter values. A filter rule for a
 	// property the user set as extra keeps the filter value, because filters.properties wins on top.
@@ -207,7 +207,28 @@ export function renderExtra(extra: Record<string, string> | undefined, ctx: VarC
 
 /** New button: extras under the template values, and the values the app wrote on top (a blank value hides nothing). */
 export function newButtonProps(current: Props, templateProps: Props, extra: Record<string, string> | undefined, ctx: VarContext): Props {
-	const rendered: Props = {};
-	for (const [k, v] of Object.entries(templateProps)) rendered[k] = typeof v === 'string' ? renderVariables(v, ctx) : v;
+	const rendered = renderProperties(templateProps, ctx);
 	return mergeProperties(mergeProperties(renderExtra(extra, ctx), rendered), current);
+}
+
+/** Renders string values in YAML lists and mappings. Shared YAML anchors keep their identity. */
+export function renderProperties(props: Props, ctx: VarContext): Props {
+	const seen = new WeakMap<object, PropValue>();
+	const render = (value: PropValue): PropValue => {
+		if (typeof value === 'string') return renderVariables(value, ctx);
+		if (value === null || typeof value !== 'object') return value;
+		const previous = seen.get(value);
+		if (previous) return previous;
+		if (Array.isArray(value)) {
+			const out: PropValue[] = [];
+			seen.set(value, out);
+			for (const item of value) out.push(render(item));
+			return out;
+		}
+		const out: Props = {};
+		seen.set(value, out);
+		for (const [key, item] of Object.entries(value)) Object.defineProperty(out, key, { value: render(item), enumerable: true, configurable: true, writable: true });
+		return out;
+	};
+	return render(props) as Props;
 }

@@ -42,7 +42,9 @@ Run "Set up templates for this base" from an open base. Choose the template, a f
 
 The name pattern can use `{{date}}`, `{{date:YYYY-MM-DD}}`, `{{time}}`, `{{base}}`, `{{view}}`, `{{template}}` and any filter property, such as `{{project}}`. A link loses its brackets, so `[[Apollo]]` gives `Apollo`. Characters that a file name cannot hold become spaces. If the name is taken, the plugin adds a number, like the app does.
 
-Templates can use the variables of the core Templates plugin: `{{title}}`, `{{date}}` and `{{time}}`, with or without a format. They work in the text and in property values.
+Templates can use the variables of the core Templates plugin: `{{title}}`, `{{date}}` and `{{time}}`, with or without a format. They work in the text and in string values inside YAML lists and nested mappings. For example, `aliases: ["{{title}}"]` gets the note title. A nested value such as `details: {name: "{{title}}"}` gets the title too. Template names, note names and filter property names can use Unicode text, such as `日本語` and `Café`.
+
+<img src="https://raw.githubusercontent.com/theluckystrike/bases-note-templates/HEAD/docs/nested-properties.png" alt="A new note with a title in a list and a nested mapping" width="720">
 
 ### Command and header button
 
