@@ -74,7 +74,7 @@ With Pro, the plugin can also hand a new note to Templater. If the note still ha
 
 ## Install
 
-When Bases Note Templates is listed in the community directory, open Settings, then Community plugins, then Browse, and search for "Bases Note Templates". Select Install, then Enable.
+In Obsidian, open Settings, then Community plugins, then Browse, and search for "Bases Note Templates". Select Install, then Enable.
 
 To install by hand, download `main.js`, `manifest.json` and `styles.css` from the latest release. Put the three files in `<vault>/.obsidian/plugins/bases-note-templates/`. Reload the list of community plugins, then turn on Bases Note Templates.
 
@@ -103,6 +103,8 @@ Pro unlocks more templates for each base with a list, view templates, Templater,
 Without Pro, a base with more templates uses its first template, and view templates wait. Your setup stays saved and comes back when Pro is on.
 
 ## Settings
+
+After a minor or major update, this plugin opens one What's new tab in the background. The tab and settings card suggest other NoteMods plugins and Zovo Chat and link to notemods.com for feedback ([privacy](https://notemods.com/privacy/)). The tab sends no data. Turn the tab off in Settings.
 
 <img src="https://raw.githubusercontent.com/theluckystrike/bases-note-templates/HEAD/docs/settings.png" alt="Settings with the Pro section, the New button switch, the date and time formats and Templater" width="720">
 

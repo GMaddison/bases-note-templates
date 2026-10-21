@@ -3,6 +3,7 @@ import { sponsorsSettingItems } from './license/github-obsidian';
 import { DEFAULT_SETTINGS, describeBase, effectiveFor, normalizeSettings } from './config';
 import { PRO_UI, isPro } from './pro';
 import type BasesNoteTemplatesPlugin from './main';
+import { helloSettingItems } from './hello/settings';
 
 export class BasesNoteTemplatesSettingTab extends PluginSettingTab {
 	plugin: BasesNoteTemplatesPlugin;
@@ -13,6 +14,11 @@ export class BasesNoteTemplatesSettingTab extends PluginSettingTab {
 	}
 
 	getSettingDefinitions(): SettingDefinitionItem[] {
+		// The product rows, then the "More from NoteMods" card (packages/hello).
+		return [...this.productSettingDefinitions(), ...helloSettingItems()];
+	}
+
+	productSettingDefinitions(): SettingDefinitionItem[] {
 		const s = this.plugin.settings;
 		const paths = Object.keys(s.bases).sort();
 		const items: SettingDefinition[] = paths.map((path) => {
