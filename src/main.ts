@@ -3,7 +3,8 @@ import type { SponsorsManager } from './license/index';
 import { createGitHubSponsors } from './license/github-obsidian';
 import { DEFAULT_BASE, DEFAULT_SETTINGS, effectiveFor, normalizeBase, usesNew, normalizeSettings, renamePath, renameTouches, type BaseConfig, type Effective, type Settings } from './config';
 import { SPONSORS, bindPro, isPro, onProChange, resetPro } from './pro';
-import { filtersToProperties } from './filters';
+import { fillBlank, filtersToProperties, thisProperties, type PropValue, type SelfRef } from './filters';
+import { EMBED_CLICK_MS, OneShot, embedView, findEmbedNew, parseEmbedSrc, type EmbedHit } from './embed';
 import { TemplatePickModal, SetupModal } from './modals';
 import { BasesNoteTemplatesSettingTab } from './settings';
 import { makeFileName, newButtonProps, planNewNote, renderVariables, splitFrontmatter, uniquePath, type Props, type VarContext } from './template';
@@ -20,6 +21,8 @@ const PRO_NOTICE = 'This is a pro feature. Sponsor on GitHub, then sign in from 
 export interface BaseContext {
 	file: TFile;
 	view: string;
+	/** The note that embeds the base, when New was pressed in an embedded base. It is `this` in the filters. */
+	host?: TFile;
 }
 
 interface BaseView {
@@ -97,6 +100,8 @@ export default class BasesNoteTemplatesPlugin extends Plugin {
 	private settingTab: BasesNoteTemplatesSettingTab | null = null;
 	private pending = new Map<string, Pending>();
 	private buttons = new Map<View, HTMLElement>();
+	/** The embedded base whose New button was pressed last. Used once, for 2 seconds. */
+	private embedClicks = new OneShot<BaseContext>(EMBED_CLICK_MS);
 
 	async onload(): Promise<void> {
 		// First: "What's new" reads its state before the settings load (packages/hello). It does not wait.
@@ -119,6 +124,8 @@ export default class BasesNoteTemplatesPlugin extends Plugin {
 			this.registerEvent(this.app.vault.on('modify', (file) => this.onModify(file)));
 			this.registerEvent(this.app.workspace.on('layout-change', () => this.refreshButtons()));
 			this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.refreshButtons()));
+			this.listenForEmbedNew(document);
+			this.registerEvent(this.app.workspace.on('window-open', (_win, w) => this.listenForEmbedNew(w.document)));
 			this.refreshButtons();
 			void pro.refresh();
 			this.registerInterval(window.setInterval(() => void pro.refresh(), PRO_TICK_MS));
@@ -130,6 +137,7 @@ export default class BasesNoteTemplatesPlugin extends Plugin {
 		this.pending.clear();
 		for (const el of this.buttons.values()) el.remove();
 		this.buttons.clear();
+		this.embedClicks.clear();
 		resetPro();
 	}
 
@@ -304,12 +312,75 @@ export default class BasesNoteTemplatesPlugin extends Plugin {
 	/** New button: an empty note created while a base with a setup is the active tab. */
 	private onCreate(file: TAbstractFile): void {
 		if (!this.settings.hookNew || !(file instanceof TFile) || file.extension !== 'md' || file.stat.size !== 0) return;
-		const ctx = this.activeBase();
+		// A click on the New button of an embedded base counts for the first empty note only.
+		const clicked = this.embedClicks.take(Date.now());
+		const ctx = this.activeBase() ?? clicked;
 		if (!ctx) return;
 		const eff = effectiveFor(this.settings, ctx.file.path, ctx.view, isPro());
 		if (!eff || !usesNew(eff)) return;
 		const timer = window.setTimeout(() => this.firePending(file), NEW_FALLBACK_MS);
 		this.pending.set(file.path, { ctx, eff, timer });
+	}
+
+	/** Capture phase: the click comes here before the New button of the embed makes the note. */
+	private listenForEmbedNew(doc: Document): void {
+		this.registerDomEvent(doc, 'click', (evt) => this.onEmbedNew(evt.target), { capture: true });
+		this.registerDomEvent(doc, 'keydown', (evt) => {
+			if (!evt.isComposing && (evt.key === 'Enter' || evt.key === ' ')) this.onEmbedNew(evt.target);
+		}, { capture: true });
+	}
+
+	private onEmbedNew(target: EventTarget | null): void {
+		if (!this.settings.hookNew) return;
+		const hit = findEmbedNew(target);
+		const ctx = hit ? this.embedContext(hit) : null;
+		if (ctx) this.recordEmbedClick(ctx);
+	}
+
+	/** Records the base of an embed whose New button was pressed. The next empty note in 2 seconds gets its setup. */
+	recordEmbedClick(ctx: BaseContext, now = Date.now()): void {
+		this.embedClicks.record(ctx, now);
+	}
+
+	/** The base file (from the src of the embed, resolved from the host note), its view and the host note. */
+	embedContext(hit: EmbedHit): BaseContext | null {
+		const host = this.hostOf(hit.el);
+		if (!host) return null;
+		const file = this.app.metadataCache.getFirstLinkpathDest(parseEmbedSrc(hit.src).path, host.path);
+		if (!file || file.extension !== 'base') return null;
+		return { file, view: embedView(hit), host };
+	}
+
+	/** The note that holds an embed: the note of an embed around it, else the note of its tab, else the active note. */
+	private hostOf(el: HTMLElement): TFile | null {
+		const tabs: TFile[] = [];
+		this.app.workspace.iterateAllLeaves((leaf) => {
+			const view = leaf.view;
+			if (view instanceof FileView && view.file && view.containerEl.contains(el)) tabs.push(view.file);
+		});
+		let host = tabs[0] ?? this.app.workspace.getActiveFile();
+		if (!host) return null;
+		// A base inside an embedded note: `this` is that note, the same as the app.
+		const outer: string[] = [];
+		for (let p = el.parentElement?.closest('.internal-embed[src]'); p; p = p.parentElement?.closest('.internal-embed[src]')) outer.unshift(p.getAttribute('src') ?? '');
+		for (const src of outer) {
+			const next = this.app.metadataCache.getFirstLinkpathDest(parseEmbedSrc(src).path, host.path);
+			if (next?.extension === 'md') host = next;
+		}
+		return host;
+	}
+
+	/** this.* in the filters, with the host note as `this`. */
+	private selfRef(host: TFile, sourcePath: string): SelfRef {
+		const fm = this.app.metadataCache.getFileCache(host)?.frontmatter;
+		return {
+			link: this.app.metadataCache.fileToLinktext(host, sourcePath),
+			path: host.path,
+			name: host.name,
+			basename: host.basename,
+			folder: host.parent?.path ?? '',
+			props: isRecord(fm) ? (fm as Record<string, PropValue>) : {},
+		};
 	}
 
 	/** The app's own write of the filter values is the signal that its New step is done. */
@@ -333,13 +404,16 @@ export default class BasesNoteTemplatesPlugin extends Plugin {
 		if (chosen && !template) return;
 		if (eff.templates.length > 1 && !chosen) return;
 		const vars: VarContext = { title: file.basename, now: new Date(), dateFormat: this.settings.dateFormat, timeFormat: this.settings.timeFormat, base: ctx.file.basename, view: ctx.view, template: template?.name ?? '', props: {} };
+		const fromThis = ctx.host ? await this.thisValues(file, ctx, ctx.host) : {};
 		let name = file.basename;
 		await this.app.vault.process(file, (text) => {
 			const { yaml, body } = splitFrontmatter(text);
-			const current = propsFromYaml(yaml);
+			const read = propsFromYaml(yaml);
+			// The app writes this.* values itself; a value it left blank is filled here.
+			const current = fillBlank(read, fromThis);
 			if (eff.pattern) name = makeFileName(eff.pattern, { ...vars, props: current });
 			const withTitle = { ...vars, title: name, props: current };
-			if (!template && Object.keys(eff.extraProps).length === 0) return text;
+			if (!template && Object.keys(eff.extraProps).length === 0) return current === read ? text : composeNote(current, body);
 			const merged = newButtonProps(current, template?.props ?? {}, eff.extraProps, withTitle);
 			if (!template) return composeNote(merged, body);
 			const tBody = renderVariables(splitFrontmatter(template.text).body, withTitle);
@@ -355,16 +429,25 @@ export default class BasesNoteTemplatesPlugin extends Plugin {
 		await this.afterCreate(file);
 	}
 
+	/** Filter values that need `this` (project == this.file), with the host note as `this`. */
+	private async thisValues(file: TFile, ctx: BaseContext, host: TFile): Promise<Record<string, PropValue>> {
+		const data = readBaseData(await this.app.vault.cachedRead(ctx.file));
+		const view = data.views.find((v) => v.name === ctx.view) ?? data.views[0];
+		return thisProperties(data.filters, view?.filters, this.selfRef(host, file.path), { types: await this.readTypes(), linkText: (t) => this.linkText(t, file.path) });
+	}
+
 	/**
 	 * Fail closed: true only when the empty note is where the app's New button of this base puts notes (hidden
 	 * newItemFolder key, the template folder of newItemTemplate, the filter folder, else the default location).
-	 * An empty note that another plugin makes elsewhere while the base is open is left alone.
+	 * An empty note that another plugin makes elsewhere while the base is open is left alone. For an embedded base, the
+	 * default location is the one for the host note, as the app does.
 	 */
 	private async madeByNew(file: TFile, ctx: BaseContext): Promise<boolean> {
 		const data = readBaseData(await this.app.vault.cachedRead(ctx.file));
 		const view = data.views.find((v) => v.name === ctx.view) ?? data.views[0];
 		const templateDir = data.newItemTemplate ? this.app.vault.getFileByPath(data.newItemTemplate)?.parent?.path : undefined;
-		const folder = data.newItemFolder || templateDir || filtersToProperties(data.filters, view?.filters).folder || this.app.fileManager.getNewFileParent(ctx.file.path).path;
+		// The app puts the note of an embedded base in the default location for the host note.
+		const folder = data.newItemFolder || templateDir || filtersToProperties(data.filters, view?.filters).folder || this.app.fileManager.getNewFileParent((ctx.host ?? ctx.file).path).path;
 		const norm = (p: string) => p.replace(/^\/+|\/+$/g, '');
 		return norm(file.parent?.path ?? '') === norm(folder);
 	}

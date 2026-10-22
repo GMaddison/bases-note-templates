@@ -95,6 +95,14 @@
 		"wait": 900
 	},
 	{
+		"feature": "embedded-new",
+		"caption": "A project note embeds the Tasks base. New in the embed makes a note with the Task template, the filter values and a name from the pattern.",
+		"note": "Projects/Apollo board.md",
+		"eval": "(async () => { const P = 'Bases Note Templates'; const p = app.plugins.plugins['bases-note-templates']; const H = P + '/Projects/Apollo board.md'; const kept = app.workspace.getLeavesOfType('markdown').find((l) => l.view.file?.path === H); if (!kept) throw new Error('the host note is not open'); for (const leaf of [...app.workspace.getLeavesOfType('markdown'), ...app.workspace.getLeavesOfType('bases')]) if (leaf !== kept) leaf.detach(); const vs = kept.getViewState(); await kept.setViewState({ ...vs, state: { ...vs.state, mode: 'source', source: false } }); app.workspace.setActiveLeaf(kept, { focus: true }); kept.view.editor?.setCursor({ line: 0, ch: 0 }); for (const f of app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(P + '/Tasks/') && /^(\\d{4}-|Untitled)/.test(f.basename))) await app.vault.delete(f); document.querySelectorAll('.modal-container').forEach((m) => { m.querySelector('.modal-close-button')?.click(); m.remove(); }); p.pro.signOut(); p.settings.bases = { [P + '/Tasks.base']: { templates: [P + '/Templates/Task.md'], folder: '', pattern: '{{date}} {{project}}', onNew: true, views: {} } }; await p.saveSettings(); p.refreshButtons(); const sel = '.bases-embed .bases-toolbar-new-item-menu .text-icon-button'; let btn = null; for (let i = 0; i < 50 && !btn; i++) { btn = [...kept.view.containerEl.querySelectorAll(sel)].find((b) => b.offsetParent !== null) ?? null; if (!btn) await new Promise((r) => setTimeout(r, 200)); } if (!btn) throw new Error('no New button in the embedded base'); btn.scrollIntoView({ block: 'center' }); await new Promise((r) => setTimeout(r, 300)); btn.click(); await new Promise((r) => setTimeout(r, 2000)); const made = app.vault.getMarkdownFiles().find((f) => f.path.startsWith(P + '/Tasks/') && /^\\d{4}-/.test(f.basename)); if (!made) throw new Error('New in the embedded base made no note from the template'); return made.path; })()",
+		"after": "(async () => { document.querySelectorAll('.modal-container').forEach((m) => { m.querySelector('.modal-close-button')?.click(); m.remove(); }); document.body.click(); const p = app.plugins.plugins['bases-note-templates']; p.pro.signOut(); return 'ok'; })()",
+		"wait": 900
+	},
+	{
 		"feature": "bases-note-templates",
 		"caption": "Pressing New in a base: the app makes the note, then the plugin fills in the template and renames it with the pattern.",
 		"frames": [

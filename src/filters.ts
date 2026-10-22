@@ -31,6 +31,34 @@ export interface FilterOptions {
 	now?: Date;
 	/** Link text for a link("path") target, as the app writes it (shortest unique path). Default: the path as written. */
 	linkText?: LinkText;
+	/** The note that `this` means (the host note of an embedded base). Without it, rules with this.* are skipped. */
+	self?: SelfRef;
+}
+
+/** The note that `this` means in a filter: the note that embeds the base, as the app does since 1.10.1. */
+export interface SelfRef {
+	/** Link text of the note, from the new note (the app writes this.file as [[link]]). */
+	link: string;
+	path: string;
+	/** File name with the extension. */
+	name: string;
+	basename: string;
+	folder: string;
+	/** Frontmatter of the note. */
+	props: Readonly<Record<string, PropValue>>;
+}
+
+/** The value of this.file, this.file.<part>, this.<prop>, this.note.<prop> or this["prop"]. undefined = not known. */
+export function thisValue(text: string, self: SelfRef | undefined): PropValue | undefined {
+	if (!self || !/^this\b/.test(text)) return undefined;
+	if (text === 'this.file') return `[[${self.link}]]`;
+	const part = /^this\.file\.(path|name|basename|folder)$/.exec(text)?.[1];
+	if (part) return self[part as 'path' | 'name' | 'basename' | 'folder'];
+	const m = /^this(?:\.note)?(?:\.([\p{L}_][\p{L}\p{N}\p{M}_-]*)|\[\s*("[^"]*"|'[^']*')\s*\])$/u.exec(text);
+	if (!m) return undefined;
+	const name = m[1] ?? (m[2] ?? '').slice(1, -1);
+	if (!name || name === 'file' || !hasOwn(self.props, name)) return undefined;
+	return self.props[name];
 }
 
 const COMPARE = /^(.+?)\s*(==|>=|<=|!=|>|<)\s*(.+)$/s;
@@ -91,22 +119,23 @@ function unquote(text: string): string | undefined {
 }
 
 /** A literal from a filter, as the value a property gets. undefined = not a literal (formula, this.*, ...). */
-export function parseValue(raw: string, now: Date = new Date(), depth = 0, linkText: LinkText = (t) => t): PropValue | undefined {
+export function parseValue(raw: string, now: Date = new Date(), depth = 0, linkText: LinkText = (t) => t, self?: SelfRef): PropValue | undefined {
 	const text = raw.trim();
 	if (!text || depth > 8) return undefined;
+	if (self && text.startsWith('this')) return thisValue(text, self);
 	const str = unquote(text);
 	if (str !== undefined) return str;
 	if (/^-?\d+(\.\d+)?$/.test(text)) return Number(text);
 	if (text === 'true' || text === 'false') return text === 'true';
 	if (text === 'null') return null;
 	if (text.startsWith('[') && text.endsWith(']')) {
-		const items = splitArgs(text.slice(1, -1)).map((a) => parseValue(a, now, depth + 1, linkText));
+		const items = splitArgs(text.slice(1, -1)).map((a) => parseValue(a, now, depth + 1, linkText, self));
 		const values = items.filter((v): v is PropValue => v !== undefined);
 		return values.length === items.length ? values : undefined;
 	}
 	const call = /^(link|date|today|now)\((.*)\)$/s.exec(text);
 	if (!call) return undefined;
-	const args = splitArgs(call[2] ?? '').map((a) => parseValue(a, now, depth + 1, linkText));
+	const args = splitArgs(call[2] ?? '').map((a) => parseValue(a, now, depth + 1, linkText, self));
 	if (call[1] === 'today') return isoDate(now);
 	if (call[1] === 'now') return `${isoDate(now)}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
 	if (call[1] === 'date') return typeof args[0] === 'string' ? args[0] : undefined;
@@ -150,10 +179,11 @@ interface State {
 	types: Readonly<Record<string, string>>;
 	now: Date;
 	linkText: LinkText;
+	self?: SelfRef;
 }
 
 function args(text: string, state: State): PropValue | undefined {
-	const values = splitArgs(text).map((a) => parseValue(a, state.now, 0, state.linkText));
+	const values = splitArgs(text).map((a) => parseValue(a, state.now, 0, state.linkText, state.self));
 	if (values.length === 0 || values.some((v) => v === undefined)) return undefined;
 	return values.length > 1 ? (values as PropValue[]) : values[0];
 }
@@ -162,7 +192,7 @@ function applyCompare(state: State, m: RegExpExecArray): void {
 	const [, left = '', op = '', right = ''] = m;
 	if (!['==', '>=', '<='].includes(op)) return;
 	const subject = parseSubject(left);
-	const value = parseValue(right, state.now, 0, state.linkText);
+	const value = parseValue(right, state.now, 0, state.linkText, state.self);
 	if (!subject || value === undefined) return;
 	if (subject.type === 'note') state.props[subject.name] = value;
 	else if (subject.type === 'file' && subject.name === 'folder' && op === '==' && typeof value === 'string') state.folder = value;
@@ -225,11 +255,36 @@ function applyRule(state: State, rule: string): void {
  * order (the view's columns): note properties that are not set yet get an empty value, like the app.
  */
 export function filtersToProperties(baseFilters: unknown, viewFilters: unknown, order: readonly string[] = [], opts: FilterOptions = {}): FilterResult {
-	const state: State = { props: {}, folder: '', types: opts.types ?? {}, now: opts.now ?? new Date(), linkText: opts.linkText ?? ((t) => t) };
+	const state: State = { props: {}, folder: '', types: opts.types ?? {}, now: opts.now ?? new Date(), linkText: opts.linkText ?? ((t) => t), self: opts.self };
 	for (const rule of [...positiveRules(baseFilters), ...positiveRules(viewFilters)]) applyRule(state, rule);
 	for (const col of order) {
 		const subject = parseSubject(col);
 		if (subject?.type === 'note' && !hasOwn(state.props, subject.name)) state.props[subject.name] = null;
 	}
 	return { properties: state.props, folder: state.folder };
+}
+
+/**
+ * The properties that only `this` gives: the values of rules such as project == this.file, with self as `this`.
+ * Rules without this.* are not in the result. Unknown this.* values are skipped.
+ */
+export function thisProperties(baseFilters: unknown, viewFilters: unknown, self: SelfRef, opts: Omit<FilterOptions, 'self'> = {}): Record<string, PropValue> {
+	const without = filtersToProperties(baseFilters, viewFilters, [], opts).properties;
+	const withSelf = filtersToProperties(baseFilters, viewFilters, [], { ...opts, self }).properties;
+	const out: Record<string, PropValue> = {};
+	for (const [k, v] of Object.entries(withSelf)) if (!hasOwn(without, k) || JSON.stringify(without[k]) !== JSON.stringify(v)) out[k] = v;
+	return out;
+}
+
+const isBlank = (v: PropValue | undefined): boolean => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
+
+/** props with each blank or missing value filled from extra. Returns props itself when nothing changes. */
+export function fillBlank<T extends Record<string, PropValue>>(props: T, extra: Readonly<Record<string, PropValue>>): T {
+	let out: T | null = null;
+	for (const [k, v] of Object.entries(extra)) {
+		if (isBlank(v) || !isBlank(hasOwn(props, k) ? props[k] : undefined)) continue;
+		out ??= { ...props };
+		(out as Record<string, PropValue>)[k] = v;
+	}
+	return out ?? props;
 }

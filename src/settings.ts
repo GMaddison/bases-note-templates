@@ -31,7 +31,7 @@ export class BasesNoteTemplatesSettingTab extends PluginSettingTab {
 			...(this.plugin.pro ? sponsorsSettingItems(this.plugin.pro, PRO_UI) : []),
 			{
 				name: 'Use templates with the New button',
-				desc: 'Main switch. When on, a note made with New in a base that has a setup gets its template and name pattern. Off = only the command and the header button use templates.',
+				desc: 'Main switch. When on, a note made with New in a base that has a setup, or in an embed of that base in a note, gets its template and name pattern. Off = only the command and the header button use templates.',
 				control: { type: 'toggle', key: 'hookNew', defaultValue: DEFAULT_SETTINGS.hookNew },
 			},
 			{

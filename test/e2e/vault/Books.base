@@ -26,3 +26,11 @@ views:
       - file.name
       - author
       - note.started
+  - type: table
+    name: Unread
+    filters:
+      and:
+        - status == "unread"
+    order:
+      - file.name
+      - author

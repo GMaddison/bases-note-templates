@@ -1,5 +1,11 @@
 # bases-note-templates
 
+## 1.3.0
+
+### Minor Changes
+
+- New in a base embedded in a note now uses the template, filter values, folder and name pattern of that base.
+
 ## 1.2.0
 
 ### Minor Changes

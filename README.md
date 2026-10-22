@@ -46,6 +46,14 @@ Templates can use the variables of the core Templates plugin: `{{title}}`, `{{da
 
 <img src="https://raw.githubusercontent.com/theluckystrike/bases-note-templates/HEAD/docs/nested-properties.png" alt="A new note with a title in a list and a nested mapping" width="720">
 
+### Embedded bases
+
+<img src="https://raw.githubusercontent.com/theluckystrike/bases-note-templates/HEAD/docs/embedded-new.png" alt="A project note with an embedded Tasks base, and the note that New in the embed made from the Task template" width="720">
+
+Press New in a base that you embed in a note, such as `![[Tasks.base]]` or `![[Tasks.base#Bugs]]`. The new note gets the setup of that base file: the template, the filter values, the extra properties, the folder and the name pattern. The plugin uses the view that the embed shows. In a filter such as `project == this.file`, `this` is the note that holds the embed, as in the app.
+
+A `base` code block has no base file, so the plugin does not change the notes that its New button makes.
+
 ### Command and header button
 
 <img src="https://raw.githubusercontent.com/theluckystrike/bases-note-templates/HEAD/docs/header-button.png" alt="A base with a setup has a New note from template button in its tab header" width="720">
@@ -110,7 +118,7 @@ After a minor or major update, this plugin opens one What's new tab in the backg
 
 | Setting | Default | Allowed values |
 | --- | --- | --- |
-| Use templates with the New button | On | On or off |
+| Use templates with the New button | On | On or off, for bases in tabs and embedded bases |
 | Date format | YYYY-MM-DD | moment.js tokens |
 | Time format | HH:mm | moment.js tokens |
 | Run Templater on new notes | On | On or off (Pro) |
@@ -131,9 +139,9 @@ No. The setup lives in the plugin's `data.json`. Base files stay as they are.
 
 Yes. Open the setup of the base and add the name and the value under "Extra properties". A new note from the command, the header button or the New button gets the pair, and `{{date}}`, `{{time}}`, `{{base}}`, `{{view}}` and `{{template}}` work in the value. A filter value or a template value with the same name wins.
 
-### Why is the New button of an embedded base not changed?
+### Does New work in an embedded base?
 
-When a base is embedded in a note, the active tab is the note, so the plugin cannot tell which base made the new note. It leaves that note alone. Open the base file and use New or the command there.
+Yes. When you press New in an embed of a base file, the plugin uses the setup of that base file, with the same free and Pro rules. A `base` code block is not supported, because it has no base file. Its New button works as it does without the plugin.
 
 ### What if another plugin makes an empty note while a base is open?
 
