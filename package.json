@@ -1,5 +1,6 @@
 {
 	"name": "bases-note-templates",
+	"repository": {"type": "git", "url": "theluckystrike/bases-note-templates.git"},
 	"version": "1.3.0",
 	"private": true,
 	"description": "Creates new notes from a base with a template file, the base's filter values as properties, a folder and a name pattern.",
