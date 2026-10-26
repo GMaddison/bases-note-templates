@@ -2,7 +2,7 @@ import { FileView, Notice, Plugin, TFile, TFolder, normalizePath, parseYaml, str
 import type { SponsorsManager } from './license/index';
 import { createGitHubSponsors } from './license/github-obsidian';
 import { DEFAULT_BASE, DEFAULT_SETTINGS, effectiveFor, normalizeBase, usesNew, normalizeSettings, renamePath, renameTouches, type BaseConfig, type Effective, type Settings } from './config';
-import { SPONSORS, bindPro, isPro, onProChange, resetPro } from './pro';
+import { SPONSORS, bindPro, isPro, onProChange, proNotice, resetPro } from './pro';
 import { fillBlank, filtersToProperties, thisProperties, type PropValue, type SelfRef } from './filters';
 import { EMBED_CLICK_MS, OneShot, embedView, findEmbedNew, parseEmbedSrc, type EmbedHit } from './embed';
 import { TemplatePickModal, SetupModal } from './modals';
@@ -16,7 +16,6 @@ import WHATS_NEW from './whats-new.json';
 const PRO_TICK_MS = 6 * 60 * 60 * 1000;
 /** After New, the app writes the filter values about 100 ms after it creates the file. Fallback if no write comes. */
 const NEW_FALLBACK_MS = 1500;
-const PRO_NOTICE = 'This is a pro feature. Sponsor on GitHub, then sign in from the plugin settings.';
 
 export interface BaseContext {
 	file: TFile;
@@ -455,7 +454,7 @@ export default class BasesNoteTemplatesPlugin extends Plugin {
 	/** Pro: a copy of a note (a row of a base) in the same folder, opened in a new tab. */
 	async duplicate(file: TFile): Promise<TFile | null> {
 		if (!isPro()) {
-			new Notice(PRO_NOTICE);
+			proNotice('This is a pro feature.');
 			return null;
 		}
 		const text = await this.app.vault.read(file);

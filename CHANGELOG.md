@@ -1,5 +1,11 @@
 # bases-note-templates
 
+## 1.3.1
+
+### Patch Changes
+
+- The Bases Note Templates notice for a Pro feature now has a Sponsor on GitHub button.
+
 ## 1.3.0
 
 ### Minor Changes
